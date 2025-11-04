@@ -1,0 +1,160 @@
+/* llm_project/frontend/src/App.css */
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f7f6;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  display: flex;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.column {
+  flex: 1;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  min-width: 300px;
+}
+
+.column-placeholder {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  color: #888;
+}
+
+/* --- 인증 --- */
+.auth-form {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  width: 300px;
+  margin: 50px auto;
+}
+.auth-form h2 {
+  text-align: center;
+}
+.auth-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: #0056b3;
+}
+
+.logout-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #dc3545;
+}
+.logout-button:hover {
+  background-color: #c82333;
+}
+
+/* --- 목록 --- */
+.project-list, .document-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 20px;
+}
+.project-list li {
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+.project-list li.selected {
+  background-color: #e6f7ff;
+  border-color: #007bff;
+}
+.document-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.delete-button {
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  padding: 0;
+  font-size: 12px;
+}
+
+/* --- 채팅 --- */
+.chat-window {
+  height: 400px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-message {
+  padding: 8px 12px;
+  border-radius: 12px;
+  max-width: 80%;
+}
+.chat-message.user {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end;
+}
+.chat-message.bot {
+  background-color: #f1f1f1;
+  color: #333;
+  align-self: flex-start;
+}
+.chat-message p {
+  margin: 0;
+  white-space: pre-wrap; /* 줄바꿈 적용 */
+}
+
+.chat-form, .file-upload-form {
+  display: flex;
+  gap: 10px;
+}
+.chat-form input, .file-upload-form input {
+  flex: 1;
+}
