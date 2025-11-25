@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-e6=d==o_qu-qon&7-@f&e6tg=9q7c%zq*q1#1qsajb&o2w=mn4
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    ".ap-northeast-2.compute.amazonaws.com"
+    ".ap-northeast-2.compute.amazonaws.com", "localhost"
 ]
 
 
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 # React 앱이 실행될 주소
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://sogong.me",
 ]
 CORS_ALLOW_CREDENTIALS = True  # Allow cookies to be sent
 

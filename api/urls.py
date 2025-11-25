@@ -14,7 +14,12 @@ urlpatterns = [
     # Documents
     path('projects/<uuid:project_id>/documents', views.DocumentListUploadView.as_view(), name='document-list-upload'),
     path('projects/<uuid:project_id>/documents/<uuid:document_id>', views.DocumentDeleteView.as_view(), name='document-delete'),
+    path('projects/<uuid:project_id>/documents/<uuid:document_id>/pages', views.DocumentPageListView.as_view(), name='document-page-list'),
     
     # Chat
     path('projects/<uuid:project_id>/messages', views.MessageListCreateView.as_view(), name='message-list-create'),
+    
+    # Quizzes
+    path('projects/<uuid:project_id>/quizzes', views.QuizListCreateView.as_view(), name='quiz-list-create'),
+    path('projects/<uuid:project_id>/quizzes/<uuid:quiz_id>', views.QuizDetailView.as_view(), name='quiz-detail'),
 ]

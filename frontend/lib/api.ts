@@ -193,6 +193,27 @@ export const deleteDocument = async (projectId: string, documentId: string) => {
     }
 };
 
+export const getDocumentPages = async (projectId: string, documentId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/documents/${documentId}/pages`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch document pages');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching document pages:', error);
+        throw error;
+    }
+};
+
 // Messages
 export const getMessages = async (projectId: string) => {
     try {
@@ -232,7 +253,70 @@ export const sendMessage = async (projectId: string, content: string) => {
 
         return await response.json();
     } catch (error) {
-        console.error('Error sending message:', error);
+    }
+};
+
+// Quizzes
+export const generateQuiz = async (projectId: string, numQuestions: number = 5) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/quizzes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ num_questions: numQuestions }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to generate quiz');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error generating quiz:', error);
+        throw error;
+    }
+};
+
+export const getQuizzes = async (projectId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/quizzes`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch quizzes');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching quizzes:', error);
+        throw error;
+    }
+};
+
+export const getQuiz = async (projectId: string, quizId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/quizzes/${quizId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch quiz');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching quiz:', error);
         throw error;
     }
 };

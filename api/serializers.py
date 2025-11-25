@@ -21,12 +21,12 @@ class UserSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
-        fields = ['id', 'name', 'status', 'created_at', 'file'] # original_filename -> name, added status
+        fields = ['id', 'name', 'file', 'status', 'processing_message', 'created_at']
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = ['id', 'role', 'content', 'created_at']
+        fields = ['id', 'role', 'content', 'sources', 'created_at']
 
 class ProjectSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)
@@ -34,3 +34,23 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'documents'] # name -> title, added description, updated_at
+
+class DocumentPageSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import DocumentPage
+        model = DocumentPage
+        fields = ['id', 'page_number', 'original_text', 'translated_text']
+
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        from .models import Question
+        model = Question
+        fields = ['id', 'question_text', 'options', 'answer']
+
+class QuizSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)
+    
+    class Meta:
+        from .models import Quiz
+        model = Quiz
+        fields = ['id', 'title', 'created_at', 'questions']

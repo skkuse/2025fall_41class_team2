@@ -1,42 +1,5 @@
-우리의 프로젝트는 검색 대상이 전공과목의 교수님 PDF교안, 전공책이야.
-노트북 LM처럼, 로그인된 사용자는 프로젝트를 만들고, 프로젝트에 파일을 업로드하여 시나리오가 시작하지.
-1. 전공책 챕터 단위로 끊어주기 (업로드한 교안 또는 전공책 기반)
-2. 플래시 카드, 퀴즈 구현 (챕터별로 진행, 또는 시험 범위에 해당하는 교안이나 챕터 범위 설정 가능)
-3. 디자인: 중간에 챗봇 (사이드에 1, 2 기능)
-4. 종합 테마 설정 기능 (배경색, 말투), 예시: 엄격한 선생님 말투, 친절한 과 선배 오빠 말투 등
-5. 교안 번역 병기 제공 (문라이트)
-6. 로그인 기능
+### How to run
 
-
-
-백엔드 api목록
-
-curl -X POST http://127.0.0.1:8000/api/register/ \
-     -H "Content-Type: application/json" \
-     -d '{"username": "testuser", "email": "test@example.com", "password": "safepassword123"}'
-
-curl -X POST http://127.0.0.1:8000/api/login/ \
-     -H "Content-Type: application/json" \
-     -d '{"username": "abc", "password": "1234"}'
-
-curl -X POST http://127.0.0.1:8000/api/projects/ \
-     -H "Authorization: Token 5856138901ea2a0db05c2057234606f96517eb3b" \
-     -H "Content-Type: application/json" \
-     -d '{"name": "소프트웨어공학 스터디"}'
-
-curl -X GET http://127.0.0.1:8000/api/projects/ \
-     -H "Authorization: Token 5856138901ea2a0db05c2057234606f96517eb3b"
-
-
-curl -X POST http://127.0.0.1:8000/api/documents/upload/ \
-     -H "Authorization: Token 5856138901ea2a0db05c2057234606f96517eb3b" \
-     -F "project_id=1" \
-     -F "file=@test.pdf"
-
-curl -X DELETE http://127.0.0.1:8000/api/documents/1(문서id)/ \
-     -H "Authorization: Token 5856138901ea2a0db05c2057234606f96517eb3b"
-
-curl -X POST http://127.0.0.1:8000/api/projects/1(프로젝트id)/chat/ \
-     -H "Authorization: Token 5856138901ea2a0db05c2057234606f96517eb3b" \
-     -H "Content-Type: application/json" \
-     -d '{"query": "교수님 이름 뭐누"}'
+```bash
+./dev.sh
+```

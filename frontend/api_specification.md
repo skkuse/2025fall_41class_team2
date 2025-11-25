@@ -11,7 +11,7 @@
 
 **Request Body**
 | Name | Type | Description | Mandatory |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | `email` | `string` | user email, provided by supabase | Yes |
 | `id` | `string` | UUID, provided by supabase, PRIMARY KEY | Yes |
 | `username` | `string` | user name, provided by supabase | No |
@@ -53,7 +53,7 @@
 
 **Request Body**
 | Name | Type | Description | Mandatory |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | `title` | `string` | 프로젝트 제목 | Yes |
 | `description` | `string` | 프로젝트 설명 | No |
 
@@ -77,7 +77,7 @@
 
 **Request Body**
 | Name | Type | Description | Mandatory |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | `title` | `string` | 수정할 프로젝트 제목 | No |
 | `description` | `string` | 수정할 프로젝트 설명 | No |
 
@@ -115,7 +115,7 @@
 
 **Request Body** (Multipart/Form-Data)
 | Name | Type | Description | Mandatory |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | `file` | `file` | 업로드할 파일 | Yes |
 
 **Response**
@@ -150,6 +150,31 @@
 - `204 No Content`: 삭제 성공
 - `404 Not Found`: 문서를 찾을 수 없음
 
+### 3.4. Get Document Pages
+**GET** `/projects/{projectId}/documents/{documentId}/pages`
+
+**Description**
+특정 문서의 페이지별 원문과 번역본을 조회합니다.
+
+**Response**
+- `200 OK`: 페이지 목록 반환
+```json
+[
+  {
+    "id": "uuid",
+    "page_number": 1,
+    "original_text": "Original English text...",
+    "translated_text": "번역된 한글 텍스트..."
+  },
+  {
+    "id": "uuid",
+    "page_number": 2,
+    "original_text": "...",
+    "translated_text": "..."
+  }
+]
+```
+
 ---
 
 ## 4. Chat
@@ -181,7 +206,7 @@
 
 **Request Body**
 | Name | Type | Description | Mandatory |
-| :--- | :--- | :--- | :--- |
+| --- | --- | --- | --- |
 | `content` | `string` | 메시지 내용 | Yes |
 
 **Response**
@@ -194,3 +219,54 @@
   "created_at": "timestamp"
 }
 ```
+
+---
+
+## 5. Quizzes
+
+### 5.1. Generate Quiz
+**POST** `/projects/{projectId}/quizzes`
+
+**Description**
+프로젝트 내의 문서를 바탕으로 퀴즈를 생성합니다.
+
+**Request Body**
+| Name | Type | Description | Mandatory |
+| --- | --- | --- | --- |
+| `num_questions` | `integer` | 생성할 문제 수 (기본값: 5) | No |
+
+**Response**
+- `201 Created`: 퀴즈 생성 성공
+```json
+{
+  "id": "uuid",
+  "title": "Generated Quiz 1",
+  "created_at": "timestamp",
+  "questions": [
+    {
+      "id": "uuid",
+      "question_text": "질문 내용...",
+      "options": ["보기1", "보기2", "보기3", "보기4"],
+      "answer": "정답 (보기 중 하나)"
+    }
+  ]
+}
+```
+
+### 5.2. Get Quiz List
+**GET** `/projects/{projectId}/quizzes`
+
+**Description**
+프로젝트의 생성된 퀴즈 목록을 조회합니다.
+
+**Response**
+- `200 OK`: 퀴즈 목록 반환
+
+### 5.3. Get Quiz Details
+**GET** `/projects/{projectId}/quizzes/{quizId}`
+
+**Description**
+특정 퀴즈의 상세 내용(문제 포함)을 조회합니다.
+
+**Response**
+- `200 OK`: 퀴즈 상세 정보 반환

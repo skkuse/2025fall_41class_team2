@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Pencil, Check, X } from 'phosphor-react'
-import { getProject, getDocuments, uploadDocument, getMessages, sendMessage, updateProject, deleteDocument } from '../../../lib/api'
+import { Pencil, Check, X, List, Brain } from 'phosphor-react'
+import { getProject, getDocuments, uploadDocument, getMessages, sendMessage, updateProject, deleteDocument, generateQuiz, getQuizzes, getQuiz } from '../../../lib/api'
 import { useAuth } from '../../../components/AuthContext'
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +22,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [sending, setSending] = useState(false)
     const [isEditingTitle, setIsEditingTitle] = useState(false)
     const [editedTitle, setEditedTitle] = useState('')
+    const [activeTab, setActiveTab] = useState<'chat' | 'quiz'>('chat')
+    const [quizzes, setQuizzes] = useState<any[]>([])
+    const [currentQuiz, setCurrentQuiz] = useState<any>(null)
+    const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({})
+    const [quizResult, setQuizResult] = useState<any>(null)
+    const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -63,6 +69,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setLoading(false)
         }
     }
+
+    // Poll for document status updates
+    useEffect(() => {
+        if (!projectId) return
+
+        const processingDocs = documents.filter(doc => doc.status === 'processing')
+        if (processingDocs.length === 0) return
+
+        const interval = setInterval(async () => {
+            try {
+                const updatedDocs = await getDocuments(projectId)
+                setDocuments(updatedDocs)
+            } catch (err) {
+                console.error("Error polling documents:", err)
+            }
+        }, 2000) // Poll every 2 seconds
+
+        return () => clearInterval(interval)
+    }, [documents, projectId])
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!projectId) return
@@ -133,6 +158,62 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
     }
 
+    const preprocessMessageContent = (content: string) => {
+        // Replace [Document ID: <id>, Page: <page>] with a custom markdown link
+        // Format: [Page <page>](/project/<projectId>/document/<docId>?page=<page>)
+        return content.replace(
+            /\[Document ID: ([a-zA-Z0-9-]+), Page: ([\d-]+)\]/g,
+            (match, docId, pageNum) => `[${pageNum}p](/project/${projectId}/document/${docId}?page=${pageNum})`
+        )
+    }
+
+    const handleGenerateQuiz = async () => {
+        if (!projectId) return
+        setIsGeneratingQuiz(true)
+        try {
+            const newQuiz = await generateQuiz(projectId)
+            setQuizzes([newQuiz, ...quizzes])
+            setCurrentQuiz(newQuiz)
+            setQuizAnswers({})
+            setQuizResult(null)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setIsGeneratingQuiz(false)
+        }
+    }
+
+    const handleQuizSubmit = () => {
+        if (!currentQuiz) return
+        let correctCount = 0
+        currentQuiz.questions.forEach((q: any) => {
+            if (quizAnswers[q.id] === q.answer) {
+                correctCount++
+            }
+        })
+        setQuizResult({
+            correct: correctCount,
+            total: currentQuiz.questions.length,
+            score: Math.round((correctCount / currentQuiz.questions.length) * 100)
+        })
+    }
+
+    const loadQuizzes = async () => {
+        if (!projectId) return
+        try {
+            const data = await getQuizzes(projectId)
+            setQuizzes(data)
+        } catch (err: any) {
+            console.error(err)
+        }
+    }
+
+    useEffect(() => {
+        if (activeTab === 'quiz' && projectId) {
+            loadQuizzes()
+        }
+    }, [activeTab, projectId])
+
     if (authLoading || loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-white">
@@ -169,32 +250,50 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <div className="flex-1 overflow-y-auto p-4">
                     <div className="space-y-2">
                         {documents.map((doc) => (
-                            <div
+                            <Link
                                 key={doc.id}
-                                className="group relative flex items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
+                                href={`/project/${projectId}/document/${doc.id}`}
+                                className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
                             >
                                 <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100">
-                                    <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                        />
-                                    </svg>
+                                    {doc.status === 'processing' ? (
+                                        <svg className="h-5 w-5 animate-spin text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : (
+                                        <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                            />
+                                        </svg>
+                                    )}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium text-black">{doc.name}</p>
-                                    <p className="text-xs text-gray-500">{doc.status || 'processed'}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {doc.status === 'processing' ? (
+                                            <span className="text-blue-600">{doc.processing_message || 'Processing...'}</span>
+                                        ) : (
+                                            doc.status || 'processed'
+                                        )}
+                                    </p>
                                 </div>
                                 <button
-                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        handleDeleteDocument(doc.id)
+                                    }}
                                     className="absolute right-2 top-2 hidden rounded-full bg-white p-1 shadow-sm hover:bg-red-50 group-hover:block"
                                     title="Delete document"
                                 >
                                     <X size={16} weight="bold" className="text-red-600" />
                                 </button>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </div>
@@ -302,6 +401,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={{
+                                                    a: ({ node, href, children, ...props }) => {
+                                                        if (href?.includes('/document/') && href?.includes('?page=')) {
+                                                            return (
+                                                                <Link
+                                                                    href={href}
+                                                                    className="mx-1 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800 hover:bg-blue-200"
+                                                                    title="View Source"
+                                                                >
+                                                                    {children}
+                                                                </Link>
+                                                            )
+                                                        }
+                                                        return <a href={href} className="text-blue-600 hover:underline" {...props}>{children}</a>
+                                                    },
                                                     h3: ({ node, ...props }) => <h3 className="text-base font-semibold mt-4 mb-2" {...props} />,
                                                     h4: ({ node, ...props }) => <h4 className="text-sm font-semibold mt-3 mb-2" {...props} />,
                                                     h5: ({ node, ...props }) => <h5 className="text-sm font-medium mt-2 mb-1" {...props} />,
@@ -321,7 +434,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                                     em: ({ node, ...props }) => <em className="italic" {...props} />,
                                                 }}
                                             >
-                                                {msg.content}
+                                                {preprocessMessageContent(msg.content)}
                                             </ReactMarkdown>
                                         </div>
                                     ) : (
@@ -355,6 +468,170 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            {/* Right Sidebar - Tools (Quiz, etc.) */}
+            <div className="flex w-full flex-col border-l bg-white md:w-96 md:flex-shrink-0">
+                <div className="flex items-center border-b px-2">
+                    <button
+                        onClick={() => setActiveTab('chat')}
+                        className={`flex-1 border-b-2 py-3 text-sm font-medium ${activeTab === 'chat' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Chat
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('quiz')}
+                        className={`flex-1 border-b-2 py-3 text-sm font-medium ${activeTab === 'quiz' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Quiz
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+                    {activeTab === 'chat' ? (
+                        <div className="flex h-full flex-col justify-center text-center text-gray-500">
+                            <p className="mb-2">Chat is now in the main area.</p>
+                            <p className="text-xs">Use the center panel to chat with your documents.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {!currentQuiz ? (
+                                <>
+                                    <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
+                                        <div className="mb-4 flex justify-center">
+                                            <div className="rounded-full bg-blue-50 p-3">
+                                                <Brain size={32} className="text-blue-600" />
+                                            </div>
+                                        </div>
+                                        <h3 className="mb-2 text-lg font-medium text-black">Generate a Quiz</h3>
+                                        <p className="mb-6 text-sm text-gray-500">
+                                            Test your knowledge based on the uploaded documents.
+                                        </p>
+                                        <button
+                                            onClick={handleGenerateQuiz}
+                                            disabled={isGeneratingQuiz || documents.length === 0}
+                                            className="w-full rounded-full bg-black py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                                        >
+                                            {isGeneratingQuiz ? 'Generating...' : 'Generate Quiz'}
+                                        </button>
+                                    </div>
+
+                                    {quizzes.length > 0 && (
+                                        <div>
+                                            <h4 className="mb-3 text-sm font-semibold text-gray-500">Previous Quizzes</h4>
+                                            <div className="space-y-2">
+                                                {quizzes.map((quiz) => (
+                                                    <button
+                                                        key={quiz.id}
+                                                        onClick={() => {
+                                                            setCurrentQuiz(quiz)
+                                                            setQuizAnswers({})
+                                                            setQuizResult(null)
+                                                        }}
+                                                        className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50"
+                                                    >
+                                                        <p className="font-medium text-black">{quiz.title}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {new Date(quiz.created_at).toLocaleDateString()}
+                                                        </p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <button
+                                            onClick={() => setCurrentQuiz(null)}
+                                            className="text-sm text-gray-500 hover:text-black"
+                                        >
+                                            ← Back to list
+                                        </button>
+                                        <span className="text-sm font-medium text-black">{currentQuiz.title}</span>
+                                    </div>
+
+                                    {quizResult ? (
+                                        <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
+                                            <h3 className="mb-2 text-xl font-bold text-green-800">Score: {quizResult.score}%</h3>
+                                            <p className="text-green-700">
+                                                You got {quizResult.correct} out of {quizResult.total} correct!
+                                            </p>
+                                            <button
+                                                onClick={() => {
+                                                    setQuizAnswers({})
+                                                    setQuizResult(null)
+                                                }}
+                                                className="mt-4 rounded-full bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700"
+                                            >
+                                                Try Again
+                                            </button>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="space-y-6">
+                                        {currentQuiz.questions.map((q: any, idx: number) => {
+                                            const isCorrect = quizResult && quizAnswers[q.id] === q.answer
+                                            const isWrong = quizResult && quizAnswers[q.id] !== q.answer && quizAnswers[q.id]
+
+                                            return (
+                                                <div key={q.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                                                    <p className="mb-3 font-medium text-black">
+                                                        <span className="mr-2 text-gray-400">{idx + 1}.</span>
+                                                        {q.question_text}
+                                                    </p>
+                                                    <div className="space-y-2">
+                                                        {q.options.map((option: string) => (
+                                                            <button
+                                                                key={option}
+                                                                onClick={() => !quizResult && setQuizAnswers({ ...quizAnswers, [q.id]: option })}
+                                                                disabled={!!quizResult}
+                                                                className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${quizResult
+                                                                    ? option === q.answer
+                                                                        ? 'bg-green-100 text-green-800 border border-green-200'
+                                                                        : quizAnswers[q.id] === option
+                                                                            ? 'bg-red-100 text-red-800 border border-red-200'
+                                                                            : 'bg-gray-50 text-gray-500'
+                                                                    : quizAnswers[q.id] === option
+                                                                        ? 'bg-black text-white'
+                                                                        : 'bg-gray-50 text-black hover:bg-gray-100'
+                                                                    }`}
+                                                            >
+                                                                {option}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {quizResult && (
+                                                        <div className="mt-3 text-xs">
+                                                            {isCorrect ? (
+                                                                <span className="text-green-600 font-medium">Correct!</span>
+                                                            ) : (
+                                                                <span className="text-red-600 font-medium">
+                                                                    Correct answer: {q.answer}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+
+                                    {!quizResult && (
+                                        <button
+                                            onClick={handleQuizSubmit}
+                                            disabled={Object.keys(quizAnswers).length !== currentQuiz.questions.length}
+                                            className="w-full rounded-full bg-black py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                                        >
+                                            Submit Answers
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
