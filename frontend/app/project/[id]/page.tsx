@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/model/AuthContext'
 import { ProjectSidebar } from '@/widgets/project/ui/ProjectSidebar'
 import { ChatInterface } from '@/widgets/project/ui/ChatInterface'
 import { ToolsPanel } from '@/widgets/project/ui/ToolsPanel'
+import { Loading } from '@/shared/ui/loading'
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
@@ -38,10 +39,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         if (!projectId) return
         try {
             setLoading(true)
+            const minLoadTime = new Promise(resolve => setTimeout(resolve, 1000))
             const [projectData, docsData, msgsData] = await Promise.all([
                 getProject(projectId),
                 getDocuments(projectId),
                 getMessages(projectId),
+                minLoadTime
             ])
             setProject(projectData)
             setDocuments(docsData)
@@ -74,11 +77,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
 
     if (authLoading || loading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-        )
+        return <Loading />
     }
 
     if (!project) {
