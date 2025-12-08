@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, JetBrains_Mono, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "../components/AuthContext";
+import { AuthProvider } from "@/features/auth/model/AuthContext";
 
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-serif" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });

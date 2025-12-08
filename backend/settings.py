@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,7 +49,7 @@ INSTALLED_APPS = [
     'api',
     'rest_framework',
     'corsheaders',
-    'rest_framework.authtoken', # <-- 이 줄을 추가
+    'rest_framework.authtoken',
 ]
 
 
@@ -57,7 +61,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True  # Allow cookies to be sent
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', ## <-- 이 줄을 최상단 근처에 추가
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -96,20 +100,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'llm_project_db',             # 1단계에서 생성한 DB 이름
-#         'USER': 'django_user',                      # MySQL 사용자 이름
-#         'PASSWORD': '1234!@#$',   # [!] 본인의 MySQL 비밀번호로 변경
-#         'HOST': 'localhost',                 # 로컬 DB
-#         'PORT': '3306',                      # MySQL 기본 포트
-#         'OPTIONS': {
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
-#         }
-#     }
-# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

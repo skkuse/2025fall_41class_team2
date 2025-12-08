@@ -1,7 +1,8 @@
 # llm_project/api/serializers.py
 
 from rest_framework import serializers
-from .models import CustomUser, Project, Document, Message
+from rest_framework import serializers
+from .models import CustomUser, Project, Document, Message, DocumentPage, Quiz, Question
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,13 +38,11 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class DocumentPageSerializer(serializers.ModelSerializer):
     class Meta:
-        from .models import DocumentPage
         model = DocumentPage
         fields = ['id', 'page_number', 'original_text', 'translated_text']
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
-        from .models import Question
         model = Question
         fields = ['id', 'question_text', 'options', 'answer']
 
@@ -51,6 +50,5 @@ class QuizSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True)
     
     class Meta:
-        from .models import Quiz
         model = Quiz
         fields = ['id', 'title', 'quiz_type', 'created_at', 'questions']

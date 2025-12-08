@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import DocumentViewerModal from '../../../../../components/DocumentViewerModal'
-import { getDocuments } from '../../../../../lib/api'
+import DocumentViewerModal from '@/features/document/ui/DocumentViewerModal'
+import { getDocuments } from '@/shared/lib/api'
 import { useRouter } from 'next/navigation'
 
 export default function DocumentPage({ params, searchParams }: { params: Promise<{ id: string, docId: string }>, searchParams: Promise<{ page?: string }> }) {

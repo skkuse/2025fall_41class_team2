@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabaseClient'
-import { syncUserToBackend } from '../lib/api'
+import { supabase } from '../../../shared/lib/supabaseClient'
+import { syncUserToBackend } from '../../../shared/lib/api'
 import { useRouter } from 'next/navigation'
 
 interface AuthContextType {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { X, BookOpen, Translate } from 'phosphor-react'
-import { getDocumentPages } from '../lib/api'
+import { getDocumentPages } from '@/shared/lib/api'
 
 interface DocumentViewerModalProps {
     projectId: string
@@ -95,7 +95,6 @@ export default function DocumentViewerModal({ projectId, docId, initialPage, onC
                     </button>
                 </div>
 
-                {/* Modal Content */}
                 {/* Modal Content */}
                 <div className="flex flex-1 flex-col overflow-hidden bg-white/40">
                     {loading ? (
