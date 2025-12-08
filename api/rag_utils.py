@@ -72,14 +72,42 @@ def process_and_index_pdf(document_id):
         # --- 페이지별 원문 저장 및 번역 ---
         print(f"📄 [Doc: {document_id}] {len(docs)} 페이지 처리 및 번역 시작...")
         
-        # 번역을 위한 프롬프트
+        # 1. Formatting Prompt: Raw Text -> Markdown
+        formatting_prompt = ChatPromptTemplate.from_template(
+            """
+            You are a professional document formatter.
+            Convert the following raw text into clean, structured Markdown.
+            
+            Guidelines:
+            1. **Lists**: Convert bullet points (•, -, *) into proper Markdown lists. For example, `• Item` should become `- Item`. 
+            Ensure consistent indentation for nested lists. You can add any markdown symbols for readability.
+            2. **Headers**: Identify potential headings and apply Markdown headers (e.g., #, ##, ###).
+            3. **Emphasis**: Use bold (**text**) for key terms or emphasized phrases.
+            4. **Cleanliness**: Remove excessive newlines or weird artifacts from PDF extraction.
+            5. **Content**: Do NOT summarize or change the content. Keep all information intact.
+            
+            IMPORTANT: Do NOT wrap the output in code blocks (e.g., ```markdown). Return ONLY the raw Markdown text.
+            
+            Raw Text:
+            {text}
+            """
+        )
+        formatting_chain = formatting_prompt | llm | StrOutputParser()
+
+        # 2. Translation Prompt: Markdown -> Korean Markdown
         translation_prompt = ChatPromptTemplate.from_template(
             """
-            Translate the following English text into Korean.
-            Maintain the original tone and formatting as much as possible.
-            Only return the translated text.
+            Translate the following English Markdown text into Korean.
             
-            Text:
+            Guidelines:
+            1. **Structure**: PRESERVE the Markdown structure (headers, lists, bolding) exactly as provided.
+            2. **Spacing (띄어쓰기)**: Ensure the Korean spacing is natural and grammatically correct.
+            3. **Formatting**: Insert line breaks (\\n) appropriately to improve readability.
+            4. **Tone**: Maintain the original professional tone.
+            
+            IMPORTANT: Do NOT wrap the output in code blocks (e.g., ```markdown). Return ONLY the raw Korean Markdown text.
+            
+            Markdown Text:
             {text}
             """
         )
@@ -90,23 +118,30 @@ def process_and_index_pdf(document_id):
             page_num = doc.metadata.get('page', 0) + 1
             
             # 진행 상황 업데이트
-            document_obj.processing_message = f"Translating page {page_num} of {total_pages}..."
+            document_obj.processing_message = f"Processing & Translating page {page_num} of {total_pages}..."
             document_obj.save()
             
-            original_text = doc.page_content
+            raw_text = doc.page_content
             
-            # 번역 실행
             try:
-                translated_text = translation_chain.invoke({"text": original_text})
+                formatted_text = formatting_chain.invoke({"text": raw_text})
+                formatted_text = formatted_text.replace("```markdown", "").replace("```", "").strip()
+                
+                translated_text = translation_chain.invoke({"text": formatted_text})
+                translated_text = translated_text.replace("```markdown", "").replace("```", "").strip()
+                
+                final_original_text = formatted_text
+                
             except Exception as e:
-                print(f"⚠️ [Page {page_num}] 번역 실패: {e}")
+                print(f"⚠️ [Page {page_num}] 처리 실패: {e}")
+                final_original_text = raw_text # Fallback to raw
                 translated_text = ""
 
             # DB 저장
             DocumentPage.objects.create(
                 document=document_obj,
                 page_number=page_num,
-                original_text=original_text,
+                original_text=final_original_text,
                 translated_text=translated_text
             )
             print(f"   - Page {page_num} 저장 완료")
@@ -266,7 +301,7 @@ def get_rag_answer(project_id, query):
             "sources": []
         }
 
-def generate_quiz(project_id, num_questions=5):
+def generate_quiz(project_id, num_questions=5, quiz_type='MULTIPLE_CHOICE'):
     """
     프로젝트의 문서를 기반으로 퀴즈를 생성합니다.
     """
@@ -296,26 +331,48 @@ def generate_quiz(project_id, num_questions=5):
             return None
 
         # 3. LLM 프롬프트 구성 (JSON 출력 강제)
-        template = """
-        You are a professional quiz generator.
-        Based on the following [Context], generate {num_questions} multiple-choice questions.
-        The questions should be in Korean.
-        
-        [Context]:
-        {context}
-        
-        Output Format (JSON Array):
-        [
-            {{
-                "question_text": "질문 내용",
-                "options": ["보기1", "보기2", "보기3", "보기4"],
-                "answer": "정답 (보기 중 하나와 정확히 일치해야 함)"
-            }},
-            ...
-        ]
-        
-        Ensure the output is a valid JSON array. Do not include any markdown formatting (like ```json).
-        """
+        if quiz_type == 'FLASHCARD':
+            template = """
+            You are a professional educational content generator.
+            Based on the following [Context], generate {num_questions} flashcards (term and definition).
+            The content should be in Korean.
+            
+            [Context]:
+            {context}
+            
+            Output Format (JSON Array):
+            [
+                {{
+                    "question_text": "용어 (Term)",
+                    "options": [],
+                    "answer": "정의 및 설명 (Definition) - Must be concise (under 130 characters) to fit on a card."
+                }},
+                ...
+            ]
+            
+            Ensure the output is a valid JSON array. Do not include any markdown formatting.
+            """
+        else:
+            template = """
+            You are a professional quiz generator.
+            Based on the following [Context], generate {num_questions} multiple-choice questions.
+            The questions should be in Korean.
+            
+            [Context]:
+            {context}
+            
+            Output Format (JSON Array):
+            [
+                {{
+                    "question_text": "질문 내용",
+                    "options": ["보기1", "보기2", "보기3", "보기4"],
+                    "answer": "정답 (보기 중 하나와 정확히 일치해야 함)"
+                }},
+                ...
+            ]
+            
+            Ensure the output is a valid JSON array. Do not include any markdown formatting (like ```json).
+            """
         
         prompt = ChatPromptTemplate.from_template(template)
         
@@ -336,7 +393,8 @@ def generate_quiz(project_id, num_questions=5):
         # 퀴즈 객체 생성
         quiz = Quiz.objects.create(
             project=project,
-            title=f"Generated Quiz ({len(questions_data)} Questions)"
+            title=f"Generated {'Flashcards' if quiz_type == 'FLASHCARD' else 'Quiz'} ({len(questions_data)} Questions)",
+            quiz_type=quiz_type
         )
         
         # 문제 객체 생성
@@ -353,3 +411,92 @@ def generate_quiz(project_id, num_questions=5):
     except Exception as e:
         print(f"❌ [Project: {project_id}] 퀴즈 생성 실패: {e}")
         return None
+
+def generate_suggested_questions(project_id, last_message_content=None):
+    """
+    Generates 3 suggested questions based on the context.
+    - If last_message_content is provided, generates follow-up questions.
+    - If not, generates general questions based on document content.
+    """
+    try:
+        from .models import Project
+        import json
+
+        # 1. Project Context
+        collection_name = f"project_{project_id}"
+        vector_store = Chroma(
+            client=chroma_client,
+            collection_name=collection_name,
+            embedding_function=openai_embeddings,
+        )
+
+        context = ""
+        
+        if last_message_content:
+            # 2a. Context-aware: Retrieve docs relevant to the last answer
+            retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+            docs = retriever.invoke(last_message_content)
+            context = "\n\n".join([doc.page_content for doc in docs])
+            
+            template = """
+            You are a helpful AI assistant.
+            Based on the following [Context] and the user's previous interaction, generate 3 follow-up questions that the user might want to ask next.
+            The questions should be in Korean, concise, and encourage further exploration of the topic.
+            
+            [Previous AI Response Context]:
+            {last_message}
+            
+            [Context used for answer]:
+            {context}
+            
+            Output Format (JSON Array of Strings):
+            [
+                "Question 1",
+                "Question 2",
+                "Question 3"
+            ]
+            """
+        else:
+            # 2b. General: Retrieve general summary context
+            retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+            docs = retriever.invoke("summary overview main topics")
+            context = "\n\n".join([doc.page_content for doc in docs])
+            
+            if not context:
+                return ["문서를 업로드하면 질문을 추천해 드릴 수 있어요.", "이 문서의 주요 내용은 무엇인가요?", "문서 요약을 부탁해 보세요."]
+
+            template = """
+            You are a helpful AI assistant.
+            Based on the following [Context], generate 3 interesting questions that a user might want to ask to understand this document.
+            The questions should be in Korean, concise, and cover the main topics.
+            
+            [Context]:
+            {context}
+            
+            Output Format (JSON Array of Strings):
+            [
+                "Question 1",
+                "Question 2",
+                "Question 3"
+            ]
+            """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | llm | StrOutputParser()
+        
+        # 3. Generate
+        input_data = {"context": context}
+        if last_message_content:
+            input_data["last_message"] = last_message_content
+            
+        json_response = chain.invoke(input_data)
+        
+        # 4. Parse
+        cleaned_json = json_response.replace("```json", "").replace("```", "").strip()
+        questions = json.loads(cleaned_json)
+        
+        return questions[:3] # Ensure max 3
+
+    except Exception as e:
+        print(f"❌ [Project: {project_id}] 추천 질문 생성 실패: {e}")
+        return ["추천 질문을 생성할 수 없습니다.", "문서의 핵심 내용은 무엇인가요?", "요약을 부탁해 보세요."]

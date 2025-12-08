@@ -46,14 +46,7 @@ export default function DocumentPage({ params, searchParams }: { params: Promise
     if (!projectId || !docId) return null
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
-            <button
-                onClick={() => router.push(`/project/${projectId}`)}
-                className="mb-4 px-4 py-2 bg-white rounded shadow text-sm font-medium hover:bg-gray-50"
-            >
-                ← Back to Project
-            </button>
-            {/* Reuse the modal component but it will be rendered in-page */}
+        <div className="min-h-screen w-full bg-background">
             <DocumentViewerModal
                 projectId={projectId}
                 docId={docId}

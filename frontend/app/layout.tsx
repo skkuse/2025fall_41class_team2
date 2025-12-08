@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Playfair_Display, JetBrains_Mono, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../components/AuthContext";
 
-const inter = Inter({ subsets: ["latin"] });
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-serif" });
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const notosans = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ['100', '300', '400', '500', '700', '900'],
+  variable: "--font-noto"
+});
 
 export const metadata: Metadata = {
-  title: "소통하며 공부하는, 소공",
-  description: "LLM 기반 학습 보조 플랫폼",
+  title: "Sogong | Intelligent Workspace",
+  description: "Advanced LLM-based Learning Platform",
   openGraph: {
-    title: "소통하며 공부하는, 소공",
-    description: "LLM 기반 학습 보조 플랫폼",
-    siteName: "소공",
+    title: "Sogong",
+    description: "Connect, Learn, Grow.",
+    siteName: "Sogong",
     locale: "ko_KR",
     type: "website",
     images: ["/thumbnail.png"],
@@ -25,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${notosans.variable} ${playfair.variable} ${jetbrains.variable} font-sans antialiased`}>
         <AuthProvider>
           {children}
         </AuthProvider>

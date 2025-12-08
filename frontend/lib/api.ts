@@ -257,7 +257,7 @@ export const sendMessage = async (projectId: string, content: string) => {
 };
 
 // Quizzes
-export const generateQuiz = async (projectId: string, numQuestions: number = 5) => {
+export const generateQuiz = async (projectId: string, numQuestions: number = 5, quizType: 'MULTIPLE_CHOICE' | 'FLASHCARD' = 'MULTIPLE_CHOICE') => {
     try {
         const response = await fetch(`${API_BASE_URL}/projects/${projectId}/quizzes`, {
             method: 'POST',
@@ -265,19 +265,37 @@ export const generateQuiz = async (projectId: string, numQuestions: number = 5) 
                 'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ num_questions: numQuestions }),
+            body: JSON.stringify({ num_questions: numQuestions, quiz_type: quizType }),
         });
 
         if (!response.ok) {
-            throw new Error('Failed to generate quiz');
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate quiz');
         }
 
-        return await response.json();
+        return response.json();
     } catch (error) {
-        console.error('Error generating quiz:', error);
-        throw error;
+        throw error
     }
 };
+
+export const getSuggestedQuestions = async (projectId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/suggested-questions`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch suggested questions');
+        }
+        return response.json();
+    } catch (error) {
+        console.error("Error fetching suggestions:", error)
+        return []
+    }
+}
 
 export const getQuizzes = async (projectId: string) => {
     try {

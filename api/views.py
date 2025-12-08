@@ -12,7 +12,7 @@ from .serializers import (
     UserSerializer, ProjectSerializer, DocumentSerializer, MessageSerializer,
     DocumentPageSerializer, QuizSerializer
 )
-from .rag_utils import process_and_index_pdf, remove_document_vectors, get_rag_answer, generate_quiz
+from .rag_utils import process_and_index_pdf, remove_document_vectors, get_rag_answer, generate_quiz, generate_suggested_questions
 
 # 1. Authentication
 class RegisterView(APIView):
@@ -213,8 +213,9 @@ class QuizListCreateView(APIView):
     def post(self, request, project_id, *args, **kwargs):
         project = get_object_or_404(Project, id=project_id, owner=request.user)
         num_questions = request.data.get('num_questions', 5)
+        quiz_type = request.data.get('quiz_type', 'MULTIPLE_CHOICE')
         
-        quiz = generate_quiz(project_id, num_questions)
+        quiz = generate_quiz(project_id, num_questions, quiz_type)
         
         if quiz:
             serializer = QuizSerializer(quiz)
@@ -264,3 +265,17 @@ class QuizDetailView(generics.RetrieveAPIView):
         )
 
         return Response(MessageSerializer(ai_message).data, status=status.HTTP_200_OK)
+
+class SuggestedQuestionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, project_id, *args, **kwargs):
+        project = get_object_or_404(Project, id=project_id, owner=request.user)
+        
+        # Get the last AI message content if exists
+        last_message = project.messages.filter(role='assistant').order_by('-created_at').first()
+        last_message_content = last_message.content if last_message else None
+        
+        questions = generate_suggested_questions(project_id, last_message_content)
+        
+        return Response(questions, status=status.HTTP_200_OK)

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Pencil, Check, X, List, Brain } from 'phosphor-react'
-import { getProject, getDocuments, uploadDocument, getMessages, sendMessage, updateProject, deleteDocument, generateQuiz, getQuizzes, getQuiz } from '../../../lib/api'
+import { Pencil, Check, X, List, Brain, Cards, PaperPlaneRight, FilePdf, CaretLeft, Plus, Sparkle, Trash } from 'phosphor-react'
+import FlashcardViewer from '../../../components/FlashcardViewer'
+import SuggestedQuestions from '../../../components/SuggestedQuestions'
+import { getProject, getDocuments, uploadDocument, getMessages, sendMessage, updateProject, deleteDocument, generateQuiz, getQuizzes, getQuiz, getSuggestedQuestions } from '../../../lib/api'
 import { useAuth } from '../../../components/AuthContext'
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,14 +22,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [error, setError] = useState<string | null>(null)
     const [newMessage, setNewMessage] = useState('')
     const [sending, setSending] = useState(false)
+    const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([])
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false)
     const [isEditingTitle, setIsEditingTitle] = useState(false)
     const [editedTitle, setEditedTitle] = useState('')
-    const [activeTab, setActiveTab] = useState<'chat' | 'quiz'>('chat')
+
     const [quizzes, setQuizzes] = useState<any[]>([])
     const [currentQuiz, setCurrentQuiz] = useState<any>(null)
     const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({})
     const [quizResult, setQuizResult] = useState<any>(null)
     const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
+    const [quizType, setQuizType] = useState<'MULTIPLE_CHOICE' | 'FLASHCARD'>('MULTIPLE_CHOICE')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -63,6 +68,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setProject(projectData)
             setDocuments(docsData)
             setMessages(msgsData)
+
+            // Initial fetch of suggestions
+            loadSuggestedQuestions()
         } catch (err: any) {
             setError(err.message)
         } finally {
@@ -102,19 +110,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
     }
 
-    const handleSendMessage = async (e: React.FormEvent) => {
-        if (!projectId) return
-        e.preventDefault()
-        if (!newMessage.trim() || sending) return
+    const sendMessageToChat = async (content: string) => {
+        if (!projectId || !content.trim() || sending) return
 
-        const userMsg = { role: 'user', content: newMessage, created_at: new Date().toISOString() }
-        setMessages([...messages, userMsg])
         setNewMessage('')
+        const userMsg = { role: 'user', content: content, created_at: new Date().toISOString() }
+        setMessages((prev) => [...prev, userMsg])
         setSending(true)
 
         try {
-            const response = await sendMessage(projectId, newMessage)
+            const response = await sendMessage(projectId, content)
             setMessages((prev) => [...prev, response])
+
+            // Refresh suggestions based on new context
+            loadSuggestedQuestions()
         } catch (err: any) {
             setError(err.message)
         } finally {
@@ -122,9 +131,27 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
     }
 
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault()
+        sendMessageToChat(newMessage)
+    }
+
     const handleEditTitle = () => {
         setEditedTitle(project.title)
         setIsEditingTitle(true)
+    }
+
+    const loadSuggestedQuestions = async () => {
+        if (!projectId) return
+        try {
+            setLoadingSuggestions(true)
+            const questions = await getSuggestedQuestions(projectId)
+            setSuggestedQuestions(questions)
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoadingSuggestions(false)
+        }
     }
 
     const handleSaveTitle = async () => {
@@ -171,7 +198,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         if (!projectId) return
         setIsGeneratingQuiz(true)
         try {
-            const newQuiz = await generateQuiz(projectId)
+            const newQuiz = await generateQuiz(projectId, 5, quizType)
             setQuizzes([newQuiz, ...quizzes])
             setCurrentQuiz(newQuiz)
             setQuizAnswers({})
@@ -209,77 +236,64 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     }
 
     useEffect(() => {
-        if (activeTab === 'quiz' && projectId) {
+        if (projectId) {
             loadQuizzes()
         }
-    }, [activeTab, projectId])
+    }, [projectId])
 
     if (authLoading || loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-white">
-                <p className="text-sm text-gray-500">Loading...</p>
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
         )
     }
 
     if (!project) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-white">
-                <p className="text-sm text-gray-500">Project not found</p>
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <p className="text-sm text-muted-foreground">Project not found</p>
             </div>
         )
     }
 
     return (
-        <div className="flex h-screen flex-col bg-white md:flex-row">
-            {/* Sidebar - Documents */}
-            <div className="flex w-full flex-col border-r bg-white md:w-80 md:flex-shrink-0">
-                <div className="flex items-center justify-between border-b p-4">
-                    <div className="flex items-center gap-2">
-                        <Link href="/dashboard">
-                            <button className="rounded-full p-2 hover:bg-gray-100">
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
-                            </button>
-                        </Link>
-                        <h2 className="font-medium text-black">Documents</h2>
-                    </div>
+        <div className="flex h-screen w-full overflow-hidden bg-background font-sans text-foreground">
+            {/* Left Sidebar - Documents */}
+            <aside className="flex w-[430px] flex-col border-r border-sidebar-border bg-sidebar/50 backdrop-blur-xl">
+                <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+                    <Link href="/dashboard" className="group flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                        <div className="rounded-full bg-sidebar-accent p-1.5 transition-colors group-hover:bg-sidebar-accent/80">
+                            <CaretLeft size={14} weight="bold" />
+                        </div>
+                        Back
+                    </Link>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
-                    <div className="space-y-2">
+                    <div className="mb-4 flex items-center justify-between px-2">
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documents</h2>
+                        <span className="rounded-full bg-sidebar-accent px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{documents.length}</span>
+                    </div>
+
+                    <div className="space-y-1">
                         {documents.map((doc) => (
                             <Link
                                 key={doc.id}
                                 href={`/project/${projectId}/document/${doc.id}`}
-                                className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
+                                className="group relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-sidebar-accent"
                             >
-                                <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white shadow-sm ring-1 ring-black/5">
                                     {doc.status === 'processing' ? (
-                                        <svg className="h-5 w-5 animate-spin text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
+                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                                     ) : (
-                                        <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                            />
-                                        </svg>
+                                        <FilePdf size={16} className="text-red-500" weight="fill" /> // Assuming mostly PDFs for icon
                                     )}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium text-black">{doc.name}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {doc.status === 'processing' ? (
-                                            <span className="text-blue-600">{doc.processing_message || 'Processing...'}</span>
-                                        ) : (
-                                            doc.status || 'processed'
-                                        )}
+                                    <p className="truncate text-sm font-medium text-sidebar-foreground group-hover:text-primary">{doc.name}</p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                        {doc.status === 'processing' ? 'Processing...' : new Date(doc.created_at || Date.now()).toLocaleDateString()}
                                     </p>
                                 </div>
                                 <button
@@ -288,17 +302,16 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                         e.stopPropagation()
                                         handleDeleteDocument(doc.id)
                                     }}
-                                    className="absolute right-2 top-2 hidden rounded-full bg-white p-1 shadow-sm hover:bg-red-50 group-hover:block"
-                                    title="Delete document"
+                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-all"
                                 >
-                                    <X size={16} weight="bold" className="text-red-600" />
+                                    <Trash size={14} />
                                 </button>
                             </Link>
                         ))}
                     </div>
                 </div>
 
-                <div className="border-t p-4">
+                <div className="border-t border-sidebar-border p-4">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -308,25 +321,19 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     />
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-50"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-sidebar-border bg-sidebar-accent/50 px-4 py-3 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:border-primary/50"
                     >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                            />
-                        </svg>
-                        Upload Document
+                        <Plus size={16} weight="bold" />
+                        <span>Add Document</span>
                     </button>
                 </div>
-            </div>
+            </aside>
 
             {/* Main Content - Chat */}
-            <div className="flex flex-1 flex-col overflow-hidden">
-                <header className="flex items-center justify-between border-b bg-white px-6 py-4">
-                    <div className="flex-1">
+            <main className="flex flex-1 flex-col relative bg-white/50">
+                {/* Header */}
+                <header className="flex h-16 items-center justify-between border-b border-border bg-white/80 backdrop-blur-md px-6 z-10">
+                    <div className="flex items-center gap-3">
                         {isEditingTitle ? (
                             <div className="flex items-center gap-2">
                                 <input
@@ -334,70 +341,47 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                     value={editedTitle}
                                     onChange={(e) => setEditedTitle(e.target.value)}
                                     onKeyDown={handleKeyDownTitle}
-                                    className="flex border-b-2 border-black bg-transparent px-0 py-0 text-xl font-medium text-black outline-none"
+                                    className="border-b-2 border-primary bg-transparent px-0 py-1 text-lg font-medium outline-none"
                                     autoFocus
                                 />
-                                <button
-                                    onClick={handleSaveTitle}
-                                    className="rounded-full p-2 hover:bg-gray-100"
-                                    title="Save"
-                                >
-                                    <Check size={16} weight="bold" className="text-green-600" />
-                                </button>
-                                <button
-                                    onClick={() => setIsEditingTitle(false)}
-                                    className="rounded-full p-2 hover:bg-gray-100"
-                                    title="Cancel"
-                                >
-                                    <X size={16} weight="bold" className="text-gray-500" />
-                                </button>
+                                <button onClick={handleSaveTitle} className="rounded-full p-1 hover:bg-green-50 text-green-600"><Check size={16} /></button>
+                                <button onClick={() => setIsEditingTitle(false)} className="rounded-full p-1 hover:bg-red-50 text-red-500"><X size={16} /></button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2">
-                                <h1
-                                    onClick={handleEditTitle}
-                                    className="cursor-pointer text-xl font-medium text-black hover:text-gray-700"
-                                >
-                                    {project.title}
-                                </h1>
-                                <button
-                                    onClick={handleEditTitle}
-                                    className="rounded-full p-1.5 opacity-50 hover:bg-gray-100 hover:opacity-100"
-                                    title="Edit title"
-                                >
-                                    <Pencil size={16} weight="regular" className="text-gray-600" />
-                                </button>
+                            <div className="group flex items-center gap-2 cursor-pointer" onClick={handleEditTitle}>
+                                <h1 className="text-lg font-medium text-foreground">{project.title}</h1>
+                                <Pencil size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
                             </div>
                         )}
-                        {project.description && (
-                            <p className="mt-1 text-sm text-gray-500">{project.description}</p>
-                        )}
                     </div>
-                    <span className="text-sm text-gray-500">{documents.length} documents</span>
+                    <div className="flex items-center gap-2">
+                        {/* Header Actions if needed */}
+                    </div>
                 </header>
 
-                {error && (
-                    <div className="border-b border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                        {error}
-                    </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="mx-auto max-w-3xl space-y-4">
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+                    <div className="mx-auto max-w-3xl space-y-8 pb-4">
                         {messages.length === 0 && (
-                            <div className="text-center text-gray-500">
-                                <p className="text-sm">No messages yet. Start a conversation!</p>
-                            </div>)}
+                            <div className="mt-20 flex flex-col items-center justify-center space-y-4 text-center opacity-0 animate-fade-in-up">
+                                <div className="rounded-full bg-primary/10 p-4 ring-1 ring-primary/20">
+                                    <Sparkle size={32} weight="fill" className="text-primary" />
+                                </div>
+                                <h3 className="text-xl font-medium">Hello, I'm your AI Assistant.</h3>
+                                <p className="max-w-md text-muted-foreground">I can help you analyze your documents, answer questions, and generate study materials. Upload a document to get started!</p>
+                            </div>
+                        )}
+
                         {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div key={idx} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`} style={{ animationDelay: '100ms' }}>
                                 <div
-                                    className={`max-w-[80%] rounded-lg p-4 ${msg.role === 'user'
-                                        ? 'bg-black text-white'
-                                        : 'border border-gray-200 bg-white text-black'
+                                    className={`relative max-w-[85%] rounded-2xl px-5 py-4 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
+                                        ? 'bg-primary text-primary-foreground rounded-br-xs'
+                                        : 'bg-white border border-border text-foreground rounded-bl-xs'
                                         }`}
                                 >
                                     {msg.role === 'assistant' ? (
-                                        <div className="markdown-content text-sm">
+                                        <div className="markdown-content">
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={{
@@ -406,39 +390,30 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                                                             return (
                                                                 <Link
                                                                     href={href}
-                                                                    className="mx-1 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-800 hover:bg-blue-200"
-                                                                    title="View Source"
+                                                                    className="mx-1 inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary hover:bg-primary/10 transition-colors"
                                                                 >
+                                                                    <FilePdf size={10} weight="fill" />
                                                                     {children}
                                                                 </Link>
                                                             )
                                                         }
-                                                        return <a href={href} className="text-blue-600 hover:underline" {...props}>{children}</a>
+                                                        return <a href={href} className="text-primary hover:underline underline-offset-2 font-medium" {...props}>{children}</a>
                                                     },
-                                                    h3: ({ node, ...props }) => <h3 className="text-base font-semibold mt-4 mb-2" {...props} />,
-                                                    h4: ({ node, ...props }) => <h4 className="text-sm font-semibold mt-3 mb-2" {...props} />,
-                                                    h5: ({ node, ...props }) => <h5 className="text-sm font-medium mt-2 mb-1" {...props} />,
-                                                    p: ({ node, ...props }) => <p className="mb-2 leading-relaxed" {...props} />,
-                                                    ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2 space-y-1" {...props} />,
-                                                    ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-2 space-y-1" {...props} />,
-                                                    li: ({ node, children, ...props }) => (
-                                                        <li className="ml-1" {...props}>
-                                                            <span className="inline">{children}</span>
-                                                        </li>
-                                                    ),
+                                                    p: ({ node, ...props }) => <p className="mb-3 last:mb-0" {...props} />,
+                                                    ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-3 space-y-1 marker:text-primary/50" {...props} />,
+                                                    ol: ({ node, ...props }) => <ol className="list-decimal ml-4 mb-3 space-y-1 marker:text-primary/50 font-medium" {...props} />,
+                                                    li: ({ node, ...props }) => <li className="pl-1" {...props} />,
                                                     code: ({ node, inline, ...props }: any) =>
                                                         inline ?
-                                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs" {...props} /> :
-                                                            <code className="block bg-gray-100 p-2 rounded my-2 text-xs overflow-x-auto" {...props} />,
-                                                    strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
-                                                    em: ({ node, ...props }) => <em className="italic" {...props} />,
+                                                            <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground" {...props} /> :
+                                                            <code className="block bg-muted p-3 rounded-lg my-3 text-xs font-mono text-foreground overflow-x-auto border border-border/50" {...props} />,
                                                 }}
                                             >
                                                 {preprocessMessageContent(msg.content)}
                                             </ReactMarkdown>
                                         </div>
                                     ) : (
-                                        <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                                        <p className="whitespace-pre-wrap">{msg.content}</p>
                                     )}
                                 </div>
                             </div>
@@ -447,185 +422,211 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </div>
                 </div>
 
-                <div className="border-t bg-white p-4">
-                    <form onSubmit={handleSendMessage} className="mx-auto max-w-3xl">
-                        <div className="relative flex items-center">
+                {/* Input Area */}
+                <div className="p-6 pt-2 bg-gradient-to-t from-background via-background/95 to-transparent">
+                    <div className="mx-auto max-w-3xl space-y-4">
+                        {/* Suggested Questions */}
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            <SuggestedQuestions
+                                questions={suggestedQuestions}
+                                onSelect={(q) => sendMessageToChat(q)}
+                                isLoading={loadingSuggestions || sending}
+                            />
+                        </div>
+
+                        <form onSubmit={handleSendMessage} className="relative group">
+                            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20 rounded-full blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
                             <input
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 placeholder="Ask a question about your documents..."
-                                className="w-full rounded-full border border-gray-300 px-4 py-3 pr-12 text-sm focus:border-gray-500 focus:outline-none"
+                                className="w-full rounded-full border border-border bg-white/80 backdrop-blur-sm px-6 py-4 pr-14 text-sm shadow-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
                                 disabled={sending}
                             />
                             <button
                                 type="submit"
                                 disabled={sending || !newMessage.trim()}
-                                className="absolute right-2 rounded-full bg-black p-2 text-white hover:bg-gray-800 disabled:opacity-50"
+                                className="absolute right-2 top-2 rounded-full bg-primary p-2 text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                             >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                </svg>
+                                {sending ? (
+                                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                ) : (
+                                    <PaperPlaneRight size={20} weight="fill" />
+                                )}
                             </button>
-                        </div>
-                    </form>
+                        </form>
+                        <p className="text-center text-[10px] text-muted-foreground/50">AI can make mistakes. Verify important information.</p>
+                    </div>
                 </div>
-            </div>
+            </main>
 
-            {/* Right Sidebar - Tools (Quiz, etc.) */}
-            <div className="flex w-full flex-col border-l bg-white md:w-96 md:flex-shrink-0">
-                <div className="flex items-center border-b px-2">
-                    <button
-                        onClick={() => setActiveTab('chat')}
-                        className={`flex-1 border-b-2 py-3 text-sm font-medium ${activeTab === 'chat' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Chat
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('quiz')}
-                        className={`flex-1 border-b-2 py-3 text-sm font-medium ${activeTab === 'quiz' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Quiz
-                    </button>
+            {/* Right Sidebar - Tools */}
+            <aside className="hidden w-[480px] flex-col border-l border-sidebar-border bg-sidebar/30 backdrop-blur-xl lg:flex">
+                <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+                    <h2 className="font-semibold text-sidebar-foreground">Learning Tools</h2>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
-                    {activeTab === 'chat' ? (
-                        <div className="flex h-full flex-col justify-center text-center text-gray-500">
-                            <p className="mb-2">Chat is now in the main area.</p>
-                            <p className="text-xs">Use the center panel to chat with your documents.</p>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {!currentQuiz ? (
+                        <div className="space-y-8 animate-fade-in-up">
+                            {/* Generator Card */}
+                            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                                <div className="mb-6 flex justify-center">
+                                    <div className="glass-panel h-16 w-16 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-purple-500/10 text-primary">
+                                        {quizType === 'FLASHCARD' ? <Cards size={32} weight="duotone" /> : <Brain size={32} weight="duotone" />}
+                                    </div>
+                                </div>
+                                <h3 className="mb-2 text-center text-lg font-medium text-card-foreground">Generate Content</h3>
+                                <p className="mb-6 text-center text-xs text-muted-foreground">
+                                    Create personalized study materials from your uploaded documents.
+                                </p>
+
+                                <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+                                    <button
+                                        onClick={() => setQuizType('MULTIPLE_CHOICE')}
+                                        className={`rounded-lg py-2 text-xs font-medium transition-all ${quizType === 'MULTIPLE_CHOICE'
+                                            ? 'bg-white text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:bg-white/50'
+                                            }`}
+                                    >
+                                        Quiz
+                                    </button>
+                                    <button
+                                        onClick={() => setQuizType('FLASHCARD')}
+                                        className={`rounded-lg py-2 text-xs font-medium transition-all ${quizType === 'FLASHCARD'
+                                            ? 'bg-white text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:bg-white/50'
+                                            }`}
+                                    >
+                                        Flashcards
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={handleGenerateQuiz}
+                                    disabled={isGeneratingQuiz || documents.length === 0}
+                                    className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:shadow-none"
+                                >
+                                    {isGeneratingQuiz
+                                        ? 'Generating...'
+                                        : `Generate ${quizType === 'FLASHCARD' ? 'Flashcards' : 'Quiz'}`
+                                    }
+                                </button>
+                            </div>
+
+                            {/* History */}
+                            {quizzes.length > 0 && (
+                                <div>
+                                    <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">History</h4>
+                                    <div className="space-y-2">
+                                        {quizzes.map((quiz) => (
+                                            <button
+                                                key={quiz.id}
+                                                onClick={() => {
+                                                    setCurrentQuiz(quiz)
+                                                    setQuizAnswers({})
+                                                    setQuizResult(null)
+                                                }}
+                                                className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-white/50 px-3 py-3 text-left transition-all hover:border-border hover:bg-white hover:shadow-sm"
+                                            >
+                                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${quiz.quiz_type === 'FLASHCARD' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                                                    }`}>
+                                                    {quiz.quiz_type === 'FLASHCARD' ? <Cards size={16} weight="fill" /> : <Brain size={16} weight="fill" />}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">{quiz.title}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{new Date(quiz.created_at).toLocaleDateString()}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            {!currentQuiz ? (
-                                <>
-                                    <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm">
-                                        <div className="mb-4 flex justify-center">
-                                            <div className="rounded-full bg-blue-50 p-3">
-                                                <Brain size={32} className="text-blue-600" />
-                                            </div>
-                                        </div>
-                                        <h3 className="mb-2 text-lg font-medium text-black">Generate a Quiz</h3>
-                                        <p className="mb-6 text-sm text-gray-500">
-                                            Test your knowledge based on the uploaded documents.
-                                        </p>
-                                        <button
-                                            onClick={handleGenerateQuiz}
-                                            disabled={isGeneratingQuiz || documents.length === 0}
-                                            className="w-full rounded-full bg-black py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                                        >
-                                            {isGeneratingQuiz ? 'Generating...' : 'Generate Quiz'}
-                                        </button>
-                                    </div>
+                        <div className="animate-fade-in-up">
+                            <div className="mb-6 flex items-center justify-between">
+                                <button
+                                    onClick={() => setCurrentQuiz(null)}
+                                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <CaretLeft size={14} /> Back
+                                </button>
+                                <span className="text-xs font-medium text-muted-foreground truncate w-32 text-right">{currentQuiz.title}</span>
+                            </div>
 
-                                    {quizzes.length > 0 && (
-                                        <div>
-                                            <h4 className="mb-3 text-sm font-semibold text-gray-500">Previous Quizzes</h4>
-                                            <div className="space-y-2">
-                                                {quizzes.map((quiz) => (
-                                                    <button
-                                                        key={quiz.id}
-                                                        onClick={() => {
-                                                            setCurrentQuiz(quiz)
-                                                            setQuizAnswers({})
-                                                            setQuizResult(null)
-                                                        }}
-                                                        className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left hover:bg-gray-50"
-                                                    >
-                                                        <p className="font-medium text-black">{quiz.title}</p>
-                                                        <p className="text-xs text-gray-500">
-                                                            {new Date(quiz.created_at).toLocaleDateString()}
-                                                        </p>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </>
+                            {currentQuiz.quiz_type === 'FLASHCARD' ? (
+                                <FlashcardViewer cards={currentQuiz.questions} />
                             ) : (
                                 <div className="space-y-6">
-                                    <div className="flex items-center justify-between">
-                                        <button
-                                            onClick={() => setCurrentQuiz(null)}
-                                            className="text-sm text-gray-500 hover:text-black"
-                                        >
-                                            ← Back to list
-                                        </button>
-                                        <span className="text-sm font-medium text-black">{currentQuiz.title}</span>
-                                    </div>
-
-                                    {quizResult ? (
-                                        <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-                                            <h3 className="mb-2 text-xl font-bold text-green-800">Score: {quizResult.score}%</h3>
-                                            <p className="text-green-700">
-                                                You got {quizResult.correct} out of {quizResult.total} correct!
+                                    {quizResult && (
+                                        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-6 text-center animate-fade-in-up">
+                                            <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600 ring-4 ring-green-50">
+                                                <Sparkle size={32} weight="fill" />
+                                            </div>
+                                            <h3 className="text-2xl font-bold text-foreground">{quizResult.score}%</h3>
+                                            <p className="text-sm text-green-600 mt-1">
+                                                {quizResult.correct} / {quizResult.total} Correct
                                             </p>
                                             <button
                                                 onClick={() => {
                                                     setQuizAnswers({})
                                                     setQuizResult(null)
                                                 }}
-                                                className="mt-4 rounded-full bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700"
+                                                className="mt-4 w-full rounded-full bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
                                             >
                                                 Try Again
                                             </button>
                                         </div>
-                                    ) : null}
+                                    )}
 
-                                    <div className="space-y-6">
-                                        {currentQuiz.questions.map((q: any, idx: number) => {
-                                            const isCorrect = quizResult && quizAnswers[q.id] === q.answer
-                                            const isWrong = quizResult && quizAnswers[q.id] !== q.answer && quizAnswers[q.id]
-
-                                            return (
-                                                <div key={q.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                                                    <p className="mb-3 font-medium text-black">
-                                                        <span className="mr-2 text-gray-400">{idx + 1}.</span>
+                                    <div className="space-y-4">
+                                        {currentQuiz.questions.map((q: any, idx: number) => (
+                                            <div key={q.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                                                <div className="mb-4 flex gap-3">
+                                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{idx + 1}</span>
+                                                    <p className="text-sm font-medium text-card-foreground leading-relaxed">
                                                         {q.question_text}
                                                     </p>
-                                                    <div className="space-y-2">
-                                                        {q.options.map((option: string) => (
+                                                </div>
+                                                <div className="space-y-2 pl-9">
+                                                    {q.options.map((option: string) => {
+                                                        const isSelected = quizAnswers[q.id] === option;
+                                                        const isCorrect = quizResult && option === q.answer;
+                                                        const isWrong = quizResult && isSelected && option !== q.answer;
+
+                                                        let btnClass = "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted";
+                                                        if (quizResult) {
+                                                            if (isCorrect) btnClass = "border-green-500/50 bg-green-50 text-green-700";
+                                                            else if (isWrong) btnClass = "border-red-500/50 bg-red-50 text-red-700";
+                                                            else btnClass = "border-transparent bg-muted/30 text-muted-foreground/50";
+                                                        } else if (isSelected) {
+                                                            btnClass = "border-primary bg-primary/5 text-primary ring-1 ring-primary";
+                                                        }
+
+                                                        return (
                                                             <button
                                                                 key={option}
                                                                 onClick={() => !quizResult && setQuizAnswers({ ...quizAnswers, [q.id]: option })}
                                                                 disabled={!!quizResult}
-                                                                className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${quizResult
-                                                                    ? option === q.answer
-                                                                        ? 'bg-green-100 text-green-800 border border-green-200'
-                                                                        : quizAnswers[q.id] === option
-                                                                            ? 'bg-red-100 text-red-800 border border-red-200'
-                                                                            : 'bg-gray-50 text-gray-500'
-                                                                    : quizAnswers[q.id] === option
-                                                                        ? 'bg-black text-white'
-                                                                        : 'bg-gray-50 text-black hover:bg-gray-100'
-                                                                    }`}
+                                                                className={`w-full rounded-lg border px-4 py-2.5 text-left text-xs transition-all ${btnClass}`}
                                                             >
                                                                 {option}
                                                             </button>
-                                                        ))}
-                                                    </div>
-                                                    {quizResult && (
-                                                        <div className="mt-3 text-xs">
-                                                            {isCorrect ? (
-                                                                <span className="text-green-600 font-medium">Correct!</span>
-                                                            ) : (
-                                                                <span className="text-red-600 font-medium">
-                                                                    Correct answer: {q.answer}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                        )
+                                                    })}
                                                 </div>
-                                            )
-                                        })}
+                                            </div>
+                                        ))}
                                     </div>
 
                                     {!quizResult && (
                                         <button
                                             onClick={handleQuizSubmit}
                                             disabled={Object.keys(quizAnswers).length !== currentQuiz.questions.length}
-                                            className="w-full rounded-full bg-black py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                                            className="sticky bottom-4 w-full rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 disabled:opacity-50 disabled:shadow-none"
                                         >
-                                            Submit Answers
+                                            Submit Quiz
                                         </button>
                                     )}
                                 </div>
@@ -633,7 +634,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                         </div>
                     )}
                 </div>
-            </div>
+            </aside>
         </div>
     )
 }

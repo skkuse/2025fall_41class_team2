@@ -22,4 +22,7 @@ urlpatterns = [
     # Quizzes
     path('projects/<uuid:project_id>/quizzes', views.QuizListCreateView.as_view(), name='quiz-list-create'),
     path('projects/<uuid:project_id>/quizzes/<uuid:quiz_id>', views.QuizDetailView.as_view(), name='quiz-detail'),
+    
+    # Suggestions
+    path('projects/<uuid:project_id>/suggested-questions', views.SuggestedQuestionView.as_view(), name='suggested-questions'), # GET suggested questions
 ]
