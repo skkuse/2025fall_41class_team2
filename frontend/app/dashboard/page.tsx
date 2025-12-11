@@ -95,12 +95,6 @@ export default function Dashboard() {
                     </button>
                 </header>
 
-                {error && (
-                    <div className="mb-8 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600 backdrop-blur-sm">
-                        {error}
-                    </div>
-                )}
-
                 <ProjectList
                     projects={projects}
                     onDelete={handleDeleteProject}
