@@ -7,7 +7,7 @@ export const syncUserToBackend = async (user: any) => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            credentials: 'include',  // Include cookies in request
+            credentials: 'include',
             body: JSON.stringify({
                 id: user.id,
                 email: user.email,

@@ -68,7 +68,6 @@ export function ChatInterface({ projectId, projectTitle, messages, setMessages, 
             const response = await sendMessage(projectId, content)
             setMessages((prev) => [...prev, response])
 
-            // Refresh suggestions based on new context
             loadSuggestedQuestions()
         } catch (err: any) {
             setError(err.message)

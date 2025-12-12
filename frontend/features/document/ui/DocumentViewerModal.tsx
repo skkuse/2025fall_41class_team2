@@ -24,7 +24,6 @@ export default function DocumentViewerModal({ projectId, docId, initialPage, onC
     const [targetPage, setTargetPage] = useState<number | null>(initialPage || null)
     const viewerContentRef = useRef<HTMLDivElement>(null)
 
-    // If initialPage is not provided via props, try getting it from searchParams
     useEffect(() => {
         if (!initialPage) {
             const pageParam = searchParams.get('page')
@@ -52,10 +51,8 @@ export default function DocumentViewerModal({ projectId, docId, initialPage, onC
         }
     }, [projectId, docId])
 
-    // Scroll to target page when pages load
     useEffect(() => {
         if (targetPage && documentPages.length > 0) {
-            // Small delay to ensure rendering
             setTimeout(() => {
                 const pageElement = document.getElementById(`page-${targetPage}`)
                 if (pageElement) {

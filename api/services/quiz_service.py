@@ -16,9 +16,6 @@ class QuizService:
 
     def generate_quiz(self, project_id: str, num_questions=5, quiz_type='MULTIPLE_CHOICE'):
         try:
-            # Avoid circular import if using models directly here, 
-            # usually services return data structures or basic objects, 
-            # but for convenience we might use Django models if this is 'Domain Service'
             from api.models import Project, Quiz, Question
             
             project = Project.objects.get(id=project_id)

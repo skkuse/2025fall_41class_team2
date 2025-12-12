@@ -23,7 +23,6 @@ export default function InterceptedDocumentPage({ params, searchParams }: { para
         unwrapParams()
     }, [params, searchParams])
 
-    // Fetch document name for the header
     useEffect(() => {
         const fetchDocName = async () => {
             if (projectId && docId) {

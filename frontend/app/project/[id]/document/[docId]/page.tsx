@@ -25,7 +25,6 @@ export default function DocumentPage({ params, searchParams }: { params: Promise
         unwrapParams()
     }, [params, searchParams])
 
-    // Fetch document name for the header
     useEffect(() => {
         const fetchDocName = async () => {
             if (projectId && docId) {

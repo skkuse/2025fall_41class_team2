@@ -46,9 +46,6 @@ export default function Dashboard() {
             setShowModal(false)
         } catch (err: any) {
             setError(err.message)
-            // Re-throw so modal knows it failed? Or handle here.
-            // Modal component handles its own state, but we need to propagate error?
-            // For now, setting page error is okay.
         }
     }
 

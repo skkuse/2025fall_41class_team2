@@ -19,7 +19,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
-    // Unwrap params
     useEffect(() => {
         params.then(p => setProjectId(p.id))
     }, [params])
@@ -56,7 +55,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         }
     }
 
-    // Poll for document status updates
     useEffect(() => {
         if (!projectId) return
 

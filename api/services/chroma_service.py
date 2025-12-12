@@ -40,10 +40,7 @@ class ChromaService:
         )
 
     def delete_collection(self, project_id: str):
-         # Note: ChromaDB client might not expose simple delete_collection easily in all versions, 
-         # but we can delete items. 
-         # However, the original code used `collection.delete(where=...)`.
-         pass
+        pass
 
     def delete_documents(self, project_id: str, document_id: str):
         collection_name = self.get_collection_name(project_id)

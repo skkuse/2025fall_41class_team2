@@ -68,7 +68,7 @@ class DocumentService:
         doc.save()
 
     def _process_pages(self, document_obj, docs):
-        from api.models import DocumentPage # Import here to avoid circular dependency at module level if any
+        from api.models import DocumentPage
         
         formatting_chain = self._create_formatting_chain()
         translation_chain = self._create_translation_chain()

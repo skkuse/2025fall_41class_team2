@@ -1,21 +1,18 @@
-# llm_project/api/serializers.py
-
-from rest_framework import serializers
 from rest_framework import serializers
 from .models import CustomUser, Project, Document, Message, DocumentPage, Quiz, Question
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'password') # Added id
+        fields = ('id', 'username', 'email', 'password') 
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         user = CustomUser.objects.create_user(
-            username=validated_data.get('username'), # Use .get() as username might be optional
+            username=validated_data.get('username'),
             email=validated_data['email'],
-            password=validated_data.get('password'), # Password might not be provided in some flows? Spec says PUT /user
-            id=validated_data.get('id') # Allow setting ID manually
+            password=validated_data.get('password'),
+            id=validated_data.get('id') 
         )
         return user
 
@@ -34,7 +31,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'documents'] # name -> title, added description, updated_at
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'documents']
 
 class DocumentPageSerializer(serializers.ModelSerializer):
     class Meta:
