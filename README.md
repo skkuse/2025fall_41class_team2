@@ -19,7 +19,7 @@
     - aws ec2에 django 코드를 배포하는게 처음이어서 배포 전과정에서 AI를 사용
     - 기타 각종 문법 오류를 대처하기 위해 AI 기능을 활용
     - motion (구 framer-motion)을 사용하여 card-flipping 애니메이션을 만드는데 AI를 사용
-    - 프론트엔드 : 인간 100%
+    - 프론트엔드 : 인간 90%
     - 백엔드 및 RAG : 인간 40%, AI 60%
 
 2. ChatGPT 사용
